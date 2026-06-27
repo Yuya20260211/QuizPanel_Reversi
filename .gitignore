@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+
+build/
+dist/
+*.spec
+
+game_backup.json
+*.tmp
+board_turn_*.png
+*_shuffled_*.csv
+
+.DS_Store
+Thumbs.db
