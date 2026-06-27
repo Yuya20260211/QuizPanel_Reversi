@@ -21,11 +21,14 @@ class GameState:
         
         # Show score on contestant screen
         self.show_score_on_contestant = False
+        self.hide_genre_on_contestant = False
+        self.reserve_ignore_genre = False
         self.show_answer_always = False
         self.answer_revealed = False
         
         # Track used questions (contains question IDs, 1-indexed)
         self.used_questions_ids = set()
+        self.used_question_records = []
 
         # Board state
         # 2D list of cells. A cell is a dict with keys: 'color', 'initial_genre', 'initial_id'
@@ -51,6 +54,43 @@ class GameState:
         if 0 < q_id <= len(self.questions):
             return self.questions[q_id - 1]
         return None
+
+    def get_used_question_records(self) -> list[dict]:
+        """Returns confirmed used questions as JSON-ready records."""
+        if self.used_question_records:
+            return list(self.used_question_records)
+
+        records = []
+        for q_id in sorted(self.used_questions_ids):
+            q = self.get_question_by_id(q_id) or {}
+            records.append({
+                "id": q_id,
+                "genre": q.get("genre", ""),
+                "question": q.get("question", ""),
+                "answer": q.get("answer", ""),
+            })
+        return records
+
+    def _record_used_question(self, result: str):
+        """Stores the active question details for the used-question list."""
+        if not self.active_question:
+            return
+
+        q_id = self.active_question["id"]
+        if any(record.get("id") == q_id for record in self.used_question_records):
+            return
+
+        r, c = self.active_cell if self.active_cell else (None, None)
+        self.used_question_records.append({
+            "id": q_id,
+            "genre": self.active_question.get("genre", ""),
+            "question": self.active_question.get("question", ""),
+            "answer": self.active_question.get("answer", ""),
+            "turn": self.turn + 1,
+            "result": result,
+            "row": r,
+            "col": c,
+        })
 
     def push_to_history(self):
         """Pushes a deep copy of the current state to the undo history stack."""
@@ -114,6 +154,12 @@ class GameState:
         """
         initial_count = self.rows * self.cols
         reserve_questions = self.questions[initial_count:]
+
+        if self.reserve_ignore_genre:
+            for q in reserve_questions:
+                if q["id"] not in self.used_questions_ids:
+                    return q
+            return None
         
         # Rule 1: Same genre
         for q in reserve_questions:
@@ -137,6 +183,7 @@ class GameState:
         r, c = self.active_cell
         self.board[r][c]["color"] = winner_color
         self.used_questions_ids.add(self.active_question["id"])
+        self._record_used_question("winner")
         
         # Perform Othello flips
         self._flip_othello(r, c, winner_color)
@@ -155,6 +202,7 @@ class GameState:
         
         # Cell stays gray (color = None)
         self.used_questions_ids.add(self.active_question["id"])
+        self._record_used_question("no_winner")
         
         self.turn += 1
         self.active_question = None
@@ -237,9 +285,12 @@ class GameState:
             "players": self.players,
             "turn": self.turn,
             "show_score_on_contestant": self.show_score_on_contestant,
+            "hide_genre_on_contestant": self.hide_genre_on_contestant,
+            "reserve_ignore_genre": self.reserve_ignore_genre,
             "show_answer_always": self.show_answer_always,
             "answer_revealed": self.answer_revealed,
             "used_questions_ids": list(self.used_questions_ids),
+            "used_question_records": self.get_used_question_records(),
             "board": [
                 [
                     {
@@ -266,9 +317,12 @@ class GameState:
         self.players = data["players"]
         self.turn = data["turn"]
         self.show_score_on_contestant = data["show_score_on_contestant"]
+        self.hide_genre_on_contestant = data.get("hide_genre_on_contestant", False)
+        self.reserve_ignore_genre = data.get("reserve_ignore_genre", False)
         self.show_answer_always = data.get("show_answer_always", False)
         self.answer_revealed = data.get("answer_revealed", False)
         self.used_questions_ids = set(data["used_questions_ids"])
+        self.used_question_records = data.get("used_question_records", [])
         
         self.board = []
         for r in range(self.rows):

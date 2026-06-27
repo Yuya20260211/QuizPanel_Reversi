@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, 
-    QLabel, QPushButton, QFrame, QCheckBox, QMessageBox, QDialog, 
-    QFileDialog, QScrollArea, QSizePolicy
+    QLabel, QPushButton, QFrame, QCheckBox, QMessageBox, QDialog,
+    QFileDialog, QScrollArea, QSizePolicy, QTableWidget, QTableWidgetItem,
+    QHeaderView
 )
 from PySide6.QtGui import QFont, QFontMetrics, QPainter, QColor, QPen, QBrush, QPixmap, QKeySequence, QShortcut
 import styles
@@ -170,6 +171,61 @@ class ResultsDialog(QDialog):
         layout.addWidget(ok_btn)
 
 
+class UsedQuestionsDialog(QDialog):
+    """Dialog showing questions that have already been confirmed as used."""
+    def __init__(self, state, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("出題済問題一覧")
+        self.setMinimumSize(820, 520)
+        self.setStyleSheet(styles.APP_STYLE)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        title = QLabel("出題済問題一覧", self)
+        title.setFont(QFont("Inter", 16, QFont.Weight.Bold))
+        title.setStyleSheet("color: #38bdf8;")
+        layout.addWidget(title)
+
+        used_records = state.get_used_question_records()
+        table = QTableWidget(len(used_records), 4, self)
+        table.setHorizontalHeaderLabels(["番号", "ジャンル", "問題", "答え"])
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setWordWrap(False)
+        table.setAlternatingRowColors(True)
+        table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(42)
+        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+
+        for row, question in enumerate(used_records):
+            values = [
+                str(question.get("id", "")),
+                str(question.get("genre", "")),
+                str(question.get("question", "")),
+                str(question.get("answer", "")),
+            ]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setToolTip(value)
+                if col == 0:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                else:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                table.setItem(row, col, item)
+
+        layout.addWidget(table, 1)
+
+        close_btn = QPushButton("閉じる", self)
+        close_btn.clicked.connect(self.close)
+        layout.addWidget(close_btn)
+
+
 class PresenterWindow(QMainWindow):
     """The master/presenter control panel window."""
     state_updated = Signal() # Signal to trigger contestant window update
@@ -210,9 +266,12 @@ class PresenterWindow(QMainWindow):
         self.turn_lbl.setObjectName("turn_label")
         self.turn_lbl.setFont(QFont("Outfit", 18, QFont.Weight.Bold))
         self.turn_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
+        self.used_questions_btn = QPushButton("出題済問題一覧", self)
+        self.used_questions_btn.clicked.connect(self.show_used_questions)
+
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
+        header_layout.addWidget(self.used_questions_btn)
         header_layout.addWidget(self.turn_lbl)
         self.left_panel.addLayout(header_layout)
         
@@ -241,13 +300,21 @@ class PresenterWindow(QMainWindow):
         self.score_cb = QCheckBox("回答者側にもスコアを表示する", self)
         self.score_cb.setChecked(self.state.show_score_on_contestant)
         self.score_cb.stateChanged.connect(self.toggle_contestant_score)
+        self.hide_genre_cb = QCheckBox("ジャンルを隠す", self)
+        self.hide_genre_cb.setChecked(getattr(self.state, "hide_genre_on_contestant", False))
+        self.hide_genre_cb.stateChanged.connect(self.toggle_contestant_genre)
+        self.reserve_ignore_genre_cb = QCheckBox("予備問題はジャンルを問わない", self)
+        self.reserve_ignore_genre_cb.setChecked(getattr(self.state, "reserve_ignore_genre", False))
+        self.reserve_ignore_genre_cb.stateChanged.connect(self.toggle_reserve_ignore_genre)
         self.answer_always_cb = QCheckBox("常に答えを表示", self)
         self.answer_always_cb.setChecked(getattr(self.state, "show_answer_always", False))
         self.answer_always_cb.stateChanged.connect(self.toggle_answer_always)
-        
+
         controls_layout.addWidget(self.undo_btn)
         controls_layout.addWidget(self.gray_restore_btn)
         controls_layout.addWidget(self.score_cb)
+        controls_layout.addWidget(self.hide_genre_cb)
+        controls_layout.addWidget(self.reserve_ignore_genre_cb)
         self.show_contestant_btn = QPushButton("回答者パネルを表示", self)
         self.show_contestant_btn.clicked.connect(self.show_contestant_window)
         controls_layout.addWidget(self.show_contestant_btn)
@@ -472,6 +539,12 @@ class PresenterWindow(QMainWindow):
         self.score_cb.blockSignals(True)
         self.score_cb.setChecked(self.state.show_score_on_contestant)
         self.score_cb.blockSignals(False)
+        self.hide_genre_cb.blockSignals(True)
+        self.hide_genre_cb.setChecked(getattr(self.state, "hide_genre_on_contestant", False))
+        self.hide_genre_cb.blockSignals(False)
+        self.reserve_ignore_genre_cb.blockSignals(True)
+        self.reserve_ignore_genre_cb.setChecked(getattr(self.state, "reserve_ignore_genre", False))
+        self.reserve_ignore_genre_cb.blockSignals(False)
         self.answer_always_cb.blockSignals(True)
         self.answer_always_cb.setChecked(getattr(self.state, "show_answer_always", False))
         self.answer_always_cb.blockSignals(False)
@@ -594,6 +667,22 @@ class PresenterWindow(QMainWindow):
         self.state.show_score_on_contestant = (checked == 2)
         self.autosave_json()
         self.update_ui()
+
+    def toggle_contestant_genre(self, checked):
+        """Toggles genre visibility only on the contestant screen."""
+        self.state.hide_genre_on_contestant = (checked == 2)
+        self.autosave_json()
+        self.update_ui()
+
+    def toggle_reserve_ignore_genre(self, checked):
+        """Uses reserve questions in CSV order without preferring the cell's initial genre."""
+        self.state.reserve_ignore_genre = (checked == 2)
+        self.autosave_json()
+        self.update_ui()
+
+    def show_used_questions(self):
+        dialog = UsedQuestionsDialog(self.state, self)
+        dialog.exec()
 
     def show_contestant_window(self):
         if self.contestant_window is None:

@@ -93,6 +93,12 @@ class TestQuizOthello(unittest.TestCase):
         self.assertEqual(state.board[0][0]["color"], p1)
         self.assertEqual(state.turn, 1)
         self.assertIn(1, state.used_questions_ids)
+        used_records = state.get_used_question_records()
+        self.assertEqual(used_records[0]["id"], 1)
+        self.assertEqual(used_records[0]["genre"], questions[0]["genre"])
+        self.assertEqual(used_records[0]["question"], questions[0]["question"])
+        self.assertEqual(used_records[0]["answer"], questions[0]["answer"])
+        self.assertIn("used_question_records", state.save_to_dict())
         
         # Select cell (0, 1), answer by p2
         state.select_cell(0, 1)
@@ -151,6 +157,44 @@ class TestQuizOthello(unittest.TestCase):
         q = state.select_cell(0, 0)
         self.assertIsNotNone(q)
         self.assertGreater(q["id"], 16) # Should be 17
+        self.assertEqual(q["id"], 17)
+
+    def test_reserve_question_can_ignore_genre(self):
+        questions = []
+        for i in range(1, 17):
+            questions.append({
+                "id": i,
+                "genre": "アニメ" if i == 1 else "歴史",
+                "question": f"問題{i}",
+                "answer": f"答え{i}",
+            })
+        questions.extend([
+            {"id": 17, "genre": "スポーツ", "question": "予備17", "answer": "答え17"},
+            {"id": 18, "genre": "アニメ", "question": "予備18", "answer": "答え18"},
+        ])
+        state = GameState(
+            rows=self.rows,
+            cols=self.cols,
+            csv_path=self.csv_path,
+            original_csv_path=self.csv_path,
+            shuffle_type="シャッフルなし",
+            questions=questions,
+            players=self.players
+        )
+        p1 = self.players[0]["color"]
+
+        state.select_cell(0, 0)
+        state.resolve_question_with_winner(p1)
+        state.gray_restore_cell(0, 0)
+
+        q = state.select_cell(0, 0)
+        self.assertEqual(q["id"], 18)
+
+        state.active_question = None
+        state.active_cell = None
+        state.reserve_ignore_genre = True
+
+        q = state.select_cell(0, 0)
         self.assertEqual(q["id"], 17)
 
 if __name__ == "__main__":

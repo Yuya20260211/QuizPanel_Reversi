@@ -12,6 +12,7 @@ class OthelloCellButton(QPushButton):
         self.genre = genre
         self.owner_color = None
         self.is_active = False
+        self.genre_hidden = False
         self.setObjectName("othello_cell_button")
         self.setText("")
         self.setMinimumSize(72, 56)
@@ -43,6 +44,11 @@ class OthelloCellButton(QPushButton):
         self.is_active = active
         self.update_style(False)
 
+    def set_genre_hidden(self, hidden: bool):
+        self.genre_hidden = hidden
+        self.genre_label.setVisible(not hidden)
+        self.layout_labels()
+
     def update_style(self, is_hovered: bool = False):
         """Updates the style of the cell button."""
         if self.is_active:
@@ -58,13 +64,21 @@ class OthelloCellButton(QPushButton):
         self.id_label.raise_()
         self.genre_label.raise_()
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
+    def layout_labels(self):
         # Position child labels absolute relative to the button width/height
-        self.id_label.setGeometry(6, 4, self.width() - 12, 16)
-        self.genre_label.setGeometry(6, 18, self.width() - 12, self.height() - 22)
+        if self.genre_hidden:
+            self.id_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.id_label.setGeometry(6, 6, self.width() - 12, self.height() - 12)
+        else:
+            self.id_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            self.id_label.setGeometry(6, 4, self.width() - 12, 16)
+            self.genre_label.setGeometry(6, 18, self.width() - 12, self.height() - 22)
         self.id_label.raise_()
         self.genre_label.raise_()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.layout_labels()
 
     def enterEvent(self, event):
         self.update_style(True)
@@ -202,6 +216,7 @@ class ContestantWindow(QMainWindow):
         for (r, c), btn in self.cells.items():
             btn.set_owner(self.state.board[r][c]["color"])
             btn.set_active((r, c) == active_cell)
+            btn.set_genre_hidden(getattr(self.state, "hide_genre_on_contestant", False))
             
         # 2. Toggle Score card visibility
         self.score_card.setVisible(self.state.show_score_on_contestant)
@@ -252,14 +267,22 @@ class ContestantWindow(QMainWindow):
                     genre_font = candidate
                     break
 
-            btn.genre_label.setFont(genre_font)
-            btn.genre_label.setGeometry(label_x, label_y, label_w, label_h)
+            if not btn.genre_hidden:
+                btn.genre_label.setFont(genre_font)
+                btn.genre_label.setGeometry(label_x, label_y, label_w, label_h)
             
             # ID Font Size
-            id_font_size = min(btn_w * 0.16, btn_h * 0.18)
-            id_font_size = max(min(id_font_size, 13), 6)
+            if btn.genre_hidden:
+                id_font_size = min(btn_w * 0.42, btn_h * 0.46)
+                id_font_size = max(min(id_font_size, 34), 10)
+            else:
+                id_font_size = min(btn_w * 0.16, btn_h * 0.18)
+                id_font_size = max(min(id_font_size, 13), 6)
             btn.id_label.setFont(QFont("Arial", int(id_font_size), QFont.Weight.Bold))
-            btn.id_label.setGeometry(6, 4, max(1, btn_w - 12), max(14, int(btn_h * 0.22)))
+            if btn.genre_hidden:
+                btn.id_label.setGeometry(6, 6, max(1, btn_w - 12), max(1, btn_h - 12))
+            else:
+                btn.id_label.setGeometry(6, 4, max(1, btn_w - 12), max(14, int(btn_h * 0.22)))
             btn.id_label.raise_()
             btn.genre_label.raise_()
 
