@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime
 from typing import TYPE_CHECKING
-from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtCore import Qt, QSize, Signal, QTimer
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, 
     QLabel, QPushButton, QFrame, QCheckBox, QMessageBox, QDialog,
@@ -262,16 +262,21 @@ class PresenterWindow(QMainWindow):
         self.title_lbl.setFont(QFont("Outfit", 18, QFont.Weight.Bold))
         self.title_lbl.setStyleSheet("color: #38bdf8;")
         
+        self.used_questions_btn = QPushButton("出題済問題一覧", self)
+        self.used_questions_btn.clicked.connect(self.show_used_questions)
+        self.elapsed_lbl = QLabel(f"経過: {self.state.elapsed_text()}", self)
+        self.elapsed_lbl.setObjectName("turn_label")
+        self.elapsed_lbl.setFont(QFont("Outfit", 15, QFont.Weight.Bold))
+        self.elapsed_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.turn_lbl = QLabel(f"Turn: {self.state.turn}", self)
         self.turn_lbl.setObjectName("turn_label")
         self.turn_lbl.setFont(QFont("Outfit", 18, QFont.Weight.Bold))
         self.turn_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.used_questions_btn = QPushButton("出題済問題一覧", self)
-        self.used_questions_btn.clicked.connect(self.show_used_questions)
 
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
         header_layout.addWidget(self.used_questions_btn)
+        header_layout.addWidget(self.elapsed_lbl)
         header_layout.addWidget(self.turn_lbl)
         self.left_panel.addLayout(header_layout)
         
@@ -297,7 +302,7 @@ class PresenterWindow(QMainWindow):
         self.gray_restore_btn.setCheckable(True)
         self.gray_restore_btn.clicked.connect(self.toggle_gray_restore_mode)
         
-        self.score_cb = QCheckBox("回答者側にもスコアを表示する", self)
+        self.score_cb = QCheckBox("回答者側にスコア数値を表示する", self)
         self.score_cb.setChecked(self.state.show_score_on_contestant)
         self.score_cb.stateChanged.connect(self.toggle_contestant_score)
         self.hide_genre_cb = QCheckBox("ジャンルを隠す", self)
@@ -431,7 +436,11 @@ class PresenterWindow(QMainWindow):
         self.init_board_grid()
         self.init_player_buttons()
         self.update_ui()
-        
+
+        self.elapsed_timer = QTimer(self)
+        self.elapsed_timer.timeout.connect(self.update_elapsed_label)
+        self.elapsed_timer.start(1000)
+
         # Apply Styles
         self.setStyleSheet(styles.APP_STYLE)
 
@@ -502,6 +511,7 @@ class PresenterWindow(QMainWindow):
             
         # 2. Update Turn
         self.turn_lbl.setText(f"Turn: {self.state.turn}")
+        self.update_elapsed_label()
         
         # 3. Update scores display on right panel
         # Clear score rows
@@ -663,10 +673,13 @@ class PresenterWindow(QMainWindow):
         self.update_ui()
 
     def toggle_contestant_score(self, checked):
-        """Toggles score layout visibility on the contestant screen."""
+        """Toggles score number visibility on the contestant screen."""
         self.state.show_score_on_contestant = (checked == 2)
         self.autosave_json()
         self.update_ui()
+
+    def update_elapsed_label(self):
+        self.elapsed_lbl.setText(f"経過: {self.state.elapsed_text()}")
 
     def toggle_contestant_genre(self, checked):
         """Toggles genre visibility only on the contestant screen."""
@@ -918,6 +931,7 @@ class PresenterWindow(QMainWindow):
         q_body_font_size = styles.get_font_size(14, w, h, 950, 700)
         
         self.title_lbl.setFont(QFont("Outfit", title_font_size + 2, QFont.Weight.Bold))
+        self.elapsed_lbl.setFont(QFont("Outfit", title_font_size, QFont.Weight.Bold))
         self.turn_lbl.setFont(QFont("Outfit", title_font_size + 2, QFont.Weight.Bold))
         
         self.score_title.setFont(QFont("Inter", title_font_size, QFont.Weight.Bold))

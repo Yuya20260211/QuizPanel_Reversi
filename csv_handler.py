@@ -46,12 +46,6 @@ class CSVHandler:
 
         if shuffle_type == "シャッフルなし":
             shuffled_questions = raw_questions.copy()
-        elif shuffle_type == "予備問題のみシャッフル":
-            initial_part = raw_questions[:required_count]
-            reserve_part = raw_questions[required_count:]
-            random.shuffle(reserve_part)
-            shuffled_questions = initial_part + reserve_part
-            is_shuffled = True
         elif shuffle_type == "全体シャッフル":
             shuffled_questions = raw_questions.copy()
             random.shuffle(shuffled_questions)

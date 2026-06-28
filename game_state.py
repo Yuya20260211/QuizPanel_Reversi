@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import time
 
 class GameState:
     def __init__(self, rows: int, cols: int, csv_path: str, original_csv_path: str, shuffle_type: str, questions: list[dict], players: list[dict]):
@@ -18,6 +19,7 @@ class GameState:
         
         # Turn count
         self.turn = 0
+        self.started_at = time.time()
         
         # Show score on contestant screen
         self.show_score_on_contestant = False
@@ -113,6 +115,18 @@ class GameState:
                 if color in scores:
                     scores[color] += 1
         return scores
+
+    def elapsed_seconds(self) -> int:
+        """Returns elapsed seconds since the game was started."""
+        return max(0, int(time.time() - self.started_at))
+
+    def elapsed_text(self) -> str:
+        """Returns elapsed time as H:MM:SS."""
+        elapsed = self.elapsed_seconds()
+        hours = elapsed // 3600
+        minutes = (elapsed % 3600) // 60
+        seconds = elapsed % 60
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
 
     def select_cell(self, r: int, c: int) -> dict | None:
         """
@@ -284,6 +298,7 @@ class GameState:
             "questions": self.questions,
             "players": self.players,
             "turn": self.turn,
+            "started_at": self.started_at,
             "show_score_on_contestant": self.show_score_on_contestant,
             "hide_genre_on_contestant": self.hide_genre_on_contestant,
             "reserve_ignore_genre": self.reserve_ignore_genre,
@@ -316,6 +331,7 @@ class GameState:
         self.questions = data["questions"]
         self.players = data["players"]
         self.turn = data["turn"]
+        self.started_at = data.get("started_at", time.time())
         self.show_score_on_contestant = data["show_score_on_contestant"]
         self.hide_genre_on_contestant = data.get("hide_genre_on_contestant", False)
         self.reserve_ignore_genre = data.get("reserve_ignore_genre", False)

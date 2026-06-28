@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from csv_handler import CSVHandler, CSVHandlerError
 from game_state import GameState
@@ -6,7 +7,8 @@ from game_state import GameState
 class TestQuizOthello(unittest.TestCase):
     def setUp(self):
         # Create a small dummy CSV file for testing
-        self.csv_path = "D:\\Google_Antigravity\\test_quiz.csv"
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.csv_path = os.path.join(self.temp_dir.name, "test_quiz.csv")
         self.rows = 4
         self.cols = 4 # 16 questions needed
         
@@ -28,15 +30,7 @@ class TestQuizOthello(unittest.TestCase):
         ]
 
     def tearDown(self):
-        if os.path.exists(self.csv_path):
-            os.remove(self.csv_path)
-        # Clean up shuffled tests if any
-        for f in os.listdir("D:\\Google_Antigravity"):
-            if "test_quiz_shuffled_" in f:
-                try:
-                    os.remove(os.path.join("D:\\Google_Antigravity", f))
-                except:
-                    pass
+        self.temp_dir.cleanup()
 
     def test_csv_loading_and_validation(self):
         # Test valid CSV loading without shuffle
@@ -99,6 +93,8 @@ class TestQuizOthello(unittest.TestCase):
         self.assertEqual(used_records[0]["question"], questions[0]["question"])
         self.assertEqual(used_records[0]["answer"], questions[0]["answer"])
         self.assertIn("used_question_records", state.save_to_dict())
+        self.assertIn("started_at", state.save_to_dict())
+        self.assertRegex(state.elapsed_text(), r"^\d+:\d{2}:\d{2}$")
         
         # Select cell (0, 1), answer by p2
         state.select_cell(0, 1)

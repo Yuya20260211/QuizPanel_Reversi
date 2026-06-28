@@ -47,7 +47,7 @@ COLOR_PALETTE = [
     {"name": "イエロー (黄色)", "hex": "#ca8a04"},
 ]
 
-SHUFFLE_OPTIONS = ["シャッフルなし", "予備問題のみシャッフル", "全体シャッフル"]
+SHUFFLE_OPTIONS = ["シャッフルなし", "全体シャッフル"]
 
 
 class NumberStepper(QWidget):
@@ -186,7 +186,7 @@ class SetupWindow(QDialog):
         self.new_game_layout.addLayout(dims_layout)
 
         shuffle_layout = QHBoxLayout()
-        shuffle_layout.addWidget(QLabel("シャッフル設定:", self))
+        shuffle_layout.addWidget(QLabel("問題シャッフル設定:", self))
         self.shuffle_combo = QComboBox(self)
         self.shuffle_combo.addItems(SHUFFLE_OPTIONS)
         shuffle_layout.addWidget(self.shuffle_combo, 1)

@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtWidgets import QMainWindow, QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSizePolicy
 from PySide6.QtGui import QFont, QFontMetrics
 import styles
@@ -114,8 +114,12 @@ class ContestantWindow(QMainWindow):
         self.turn_lbl = QLabel(f"Turn: {self.state.turn}", self)
         self.turn_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.turn_lbl.setStyleSheet("color: #38bdf8; font-weight: bold;")
+        self.elapsed_lbl = QLabel(f"経過: {self.state.elapsed_text()}", self)
+        self.elapsed_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.elapsed_lbl.setStyleSheet("color: #38bdf8; font-weight: bold;")
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
+        header_layout.addWidget(self.elapsed_lbl)
         header_layout.addWidget(self.turn_lbl)
         self.main_layout.addLayout(header_layout)
         
@@ -139,6 +143,10 @@ class ContestantWindow(QMainWindow):
         self.init_grid()
         self.init_scores()
         self.update_ui()
+
+        self.elapsed_timer = QTimer(self)
+        self.elapsed_timer.timeout.connect(self.update_elapsed_label)
+        self.elapsed_timer.start(1000)
         
         # Apply global style
         self.setStyleSheet(styles.APP_STYLE)
@@ -175,7 +183,7 @@ class ContestantWindow(QMainWindow):
         self.score_labels.clear()
 
         # Add headers or container
-        title_lbl = QLabel("【スコア】", self)
+        title_lbl = QLabel("【回答者】", self)
         title_lbl.setStyleSheet("font-weight: bold; color: #38bdf8;")
         self.score_layout.addWidget(title_lbl)
         self.score_labels.append(title_lbl)
@@ -197,7 +205,7 @@ class ContestantWindow(QMainWindow):
             color_block.setStyleSheet(f"background-color: {p_color}; border: 1px solid white; border-radius: 4px;")
             
             # Score label
-            score_lbl = QLabel(f"{p_name}: 0枚", self)
+            score_lbl = QLabel(p_name, self)
             score_lbl.setStyleSheet(f"color: #f1f5f9; font-weight: bold;")
             
             p_layout.addWidget(color_block)
@@ -218,9 +226,10 @@ class ContestantWindow(QMainWindow):
             btn.set_active((r, c) == active_cell)
             btn.set_genre_hidden(getattr(self.state, "hide_genre_on_contestant", False))
             
-        # 2. Toggle Score card visibility
-        self.score_card.setVisible(self.state.show_score_on_contestant)
+        # 2. Contestant/player area is always visible; only score numbers can be hidden.
+        self.score_card.setVisible(True)
         self.turn_lbl.setText(f"Turn: {self.state.turn}")
+        self.update_elapsed_label()
         
         # 3. Update Scores
         scores = self.state.get_scores()
@@ -230,7 +239,10 @@ class ContestantWindow(QMainWindow):
                 color = player["color"]
                 name = player["name"]
                 count = scores.get(color, 0)
-                label.setText(f"{name}: {count}枚")
+                if self.state.show_score_on_contestant:
+                    label.setText(f"{name}: {count}枚")
+                else:
+                    label.setText(name)
                 
         # Re-adjust fonts after state changes
         self.adjust_font_sizes()
@@ -290,6 +302,7 @@ class ContestantWindow(QMainWindow):
         score_base = styles.get_font_size(12, w, h, 800, 600)
         header_size = styles.get_font_size(18, w, h, 800, 600)
         self.title_lbl.setFont(QFont("Yu Gothic UI", max(header_size, 8), QFont.Weight.Bold))
+        self.elapsed_lbl.setFont(QFont("Arial", max(header_size, 8), QFont.Weight.Bold))
         self.turn_lbl.setFont(QFont("Arial", max(header_size, 8), QFont.Weight.Bold))
         for item in self.score_labels:
             if isinstance(item, tuple):
@@ -301,6 +314,9 @@ class ContestantWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.adjust_font_sizes()
+
+    def update_elapsed_label(self):
+        self.elapsed_lbl.setText(f"経過: {self.state.elapsed_text()}")
 
     def closeEvent(self, event):
         if self.allow_close:
