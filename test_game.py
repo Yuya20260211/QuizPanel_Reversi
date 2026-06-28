@@ -154,7 +154,7 @@ class TestQuizOthello(unittest.TestCase):
         self.assertIsNotNone(q)
         self.assertGreater(q["id"], 16) # Should be 17
         self.assertEqual(q["id"], 17)
-        self.assertEqual(state.board[0][0]["display_id"], 17)
+        self.assertEqual(state.board[0][0]["initial_id"], 1)
         self.assertEqual(state.board[0][0]["display_genre"], q["genre"])
 
     def test_reserve_question_uses_csv_order_and_updates_display(self):
@@ -188,7 +188,7 @@ class TestQuizOthello(unittest.TestCase):
         q = state.select_cell(0, 0)
         self.assertEqual(q["id"], 17)
         self.assertEqual(q["genre"], "スポーツ")
-        self.assertEqual(state.board[0][0]["display_id"], 17)
+        self.assertEqual(state.board[0][0]["initial_id"], 1)
         self.assertEqual(state.board[0][0]["display_genre"], "スポーツ")
 
 if __name__ == "__main__":

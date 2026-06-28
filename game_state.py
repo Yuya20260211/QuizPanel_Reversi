@@ -44,7 +44,6 @@ class GameState:
                     "initial_genre": q["genre"],
                     "initial_id": q["id"],
                     "display_genre": q["genre"],
-                    "display_id": q["id"],
                 })
             self.board.append(row_cells)
 
@@ -159,10 +158,8 @@ class GameState:
             self.active_display_snapshot = (
                 r,
                 c,
-                cell.get("display_id", cell["initial_id"]),
                 cell.get("display_genre", cell["initial_genre"]),
             )
-            cell["display_id"] = reserve_q["id"]
             cell["display_genre"] = reserve_q["genre"]
             return self.active_question
         
@@ -176,9 +173,8 @@ class GameState:
         """Restores a reserve display change if the question was only previewed."""
         if not self.active_display_snapshot:
             return
-        r, c, display_id, display_genre = self.active_display_snapshot
+        r, c, display_genre = self.active_display_snapshot
         if self.active_question and self.active_question["id"] not in self.used_questions_ids:
-            self.board[r][c]["display_id"] = display_id
             self.board[r][c]["display_genre"] = display_genre
         self.active_display_snapshot = None
 
@@ -321,7 +317,6 @@ class GameState:
                         "initial_genre": cell["initial_genre"],
                         "initial_id": cell["initial_id"],
                         "display_genre": cell.get("display_genre", cell["initial_genre"]),
-                        "display_id": cell.get("display_id", cell["initial_id"]),
                     }
                     for cell in row
                 ]
@@ -360,7 +355,6 @@ class GameState:
                     "initial_genre": cell_data["initial_genre"],
                     "initial_id": cell_data["initial_id"],
                     "display_genre": cell_data.get("display_genre", cell_data["initial_genre"]),
-                    "display_id": cell_data.get("display_id", cell_data["initial_id"]),
                 })
             self.board.append(row_cells)
             

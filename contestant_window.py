@@ -164,7 +164,7 @@ class ContestantWindow(QMainWindow):
             for c in range(self.state.cols):
                 cell_data = self.state.board[r][c]
                 btn = OthelloCellButton(
-                    cell_data.get("display_id", cell_data["initial_id"]),
+                    cell_data["initial_id"],
                     cell_data.get("display_genre", cell_data["initial_genre"]),
                     self
                 )
@@ -235,7 +235,7 @@ class ContestantWindow(QMainWindow):
         for (r, c), btn in self.cells.items():
             cell_data = self.state.board[r][c]
             btn.set_display(
-                cell_data.get("display_id", cell_data["initial_id"]),
+                cell_data["initial_id"],
                 cell_data.get("display_genre", cell_data["initial_genre"])
             )
             btn.set_owner(cell_data["color"])

@@ -287,6 +287,24 @@ class PresenterWindow(QMainWindow):
         self.grid_layout.setSpacing(6)
         self.grid_layout.setContentsMargins(8, 8, 8, 8)
         self.left_panel.addWidget(self.grid_container, 7)
+
+        # Scores Card - aligned with the contestant panel's player area.
+        self.score_card = QFrame(self)
+        self.score_card.setObjectName("score_card")
+        self.score_card_layout = QHBoxLayout(self.score_card)
+        self.score_card_layout.setContentsMargins(15, 10, 15, 10)
+        self.score_card_layout.setSpacing(14)
+
+        self.score_title = QLabel("【現在のスコア】", self)
+        self.score_title.setFont(QFont("Inter", 12, QFont.Weight.Bold))
+        self.score_title.setStyleSheet("color: #38bdf8;")
+        self.score_card_layout.addWidget(self.score_title)
+
+        self.score_rows_container = QHBoxLayout()
+        self.score_rows_container.setSpacing(18)
+        self.score_card_layout.addLayout(self.score_rows_container)
+        self.score_card_layout.addStretch()
+        self.left_panel.addWidget(self.score_card, 1)
         
         # Left Bottom Controls
         controls_layout = QHBoxLayout()
@@ -324,13 +342,9 @@ class PresenterWindow(QMainWindow):
         # Save actions
         self.save_json_btn = QPushButton("途中保存", self)
         self.save_json_btn.clicked.connect(self.manual_save_json)
-        self.save_img_btn = QPushButton("盤面画像保存", self)
-        self.save_img_btn.clicked.connect(self.save_board_image)
         self.end_game_btn = QPushButton("ゲーム終了/結果発表", self)
         self.end_game_btn.clicked.connect(self.trigger_end_game_confirm)
-        
         controls_layout.addWidget(self.save_json_btn)
-        controls_layout.addWidget(self.save_img_btn)
         controls_layout.addWidget(self.end_game_btn)
         
         self.left_panel.addLayout(controls_layout, 1)
@@ -338,21 +352,6 @@ class PresenterWindow(QMainWindow):
         # Right Panel (Question Info & Player Selection)
         self.right_panel = QVBoxLayout()
         self.main_layout.addLayout(self.right_panel, 4)
-        
-        # Scores Card
-        self.score_card = QFrame(self)
-        self.score_card.setObjectName("score_card")
-        self.score_card_layout = QVBoxLayout(self.score_card)
-        self.score_card_layout.setContentsMargins(15, 12, 15, 12)
-        
-        self.score_title = QLabel("【現在のスコア】", self)
-        self.score_title.setFont(QFont("Inter", 12, QFont.Weight.Bold))
-        self.score_title.setStyleSheet("color: #38bdf8;")
-        self.score_card_layout.addWidget(self.score_title)
-        
-        self.score_rows_container = QVBoxLayout()
-        self.score_card_layout.addLayout(self.score_rows_container)
-        self.right_panel.addWidget(self.score_card, 2)
         
         # Question Display Card
         self.q_card = QFrame(self)
@@ -446,7 +445,7 @@ class PresenterWindow(QMainWindow):
             for c in range(self.state.cols):
                 cell_data = self.state.board[r][c]
                 btn = OthelloCellButton(
-                    cell_data.get("display_id", cell_data["initial_id"]),
+                    cell_data["initial_id"],
                     cell_data.get("display_genre", cell_data["initial_genre"]),
                     self
                 )
@@ -508,7 +507,7 @@ class PresenterWindow(QMainWindow):
         for (r, c), btn in self.cells.items():
             cell_data = self.state.board[r][c]
             btn.set_display(
-                cell_data.get("display_id", cell_data["initial_id"]),
+                cell_data["initial_id"],
                 cell_data.get("display_genre", cell_data["initial_genre"])
             )
             btn.set_owner(cell_data["color"])
@@ -842,7 +841,7 @@ class PresenterWindow(QMainWindow):
                 painter.drawText(
                     int(cx + 8),
                     int(cy + 18),
-                    str(cell_data.get("display_id", cell_data["initial_id"]))
+                    str(cell_data["initial_id"])
                 )
                 
                 # Draw Genre (centered in cell)
