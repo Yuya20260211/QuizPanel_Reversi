@@ -599,13 +599,10 @@ class PresenterWindow(QMainWindow):
         else:
             self.gray_restore_btn.setStyleSheet("")
 
-        # 7. Check Game Over automatically
-        self.check_game_over()
-
-        # 8. Trigger Contestant Screen update
+        # 7. Trigger Contestant Screen update
         self.state_updated.emit()
-        
-        # 9. Dynamic Font Re-scaling
+
+        # 8. Dynamic Font Re-scaling
         self.adjust_font_sizes()
         
     def on_cell_clicked(self, r: int, c: int):
@@ -715,14 +712,8 @@ class PresenterWindow(QMainWindow):
         self.update_ui()
 
     def check_game_over(self):
-        """Checks game over conditions and launches the results display if met."""
-        # Check conditions:
-        # 1. Board is full
-        # 2. An unanswered cell has no more reserves
-        # We handle #2 dynamically inside selection. If board is full:
-        if self.state.is_board_full() and not self.results_announced:
-            self.results_announced = True
-            self.announce_results()
+        """Automatic result announcement is intentionally disabled."""
+        return
 
     def announce_results(self):
         """Opens results dialog."""

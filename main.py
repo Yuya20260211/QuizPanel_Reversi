@@ -177,11 +177,11 @@ class SetupWindow(QDialog):
 
         dims_layout = QHBoxLayout()
         dims_layout.addWidget(QLabel("行数 (縦):", self))
-        self.rows_spin = NumberStepper(3, 10, 6, self)
+        self.rows_spin = NumberStepper(3, 10, 5, self)
         dims_layout.addWidget(self.rows_spin)
 
         dims_layout.addWidget(QLabel("列数 (横):", self))
-        self.cols_spin = NumberStepper(3, 10, 6, self)
+        self.cols_spin = NumberStepper(3, 10, 5, self)
         dims_layout.addWidget(self.cols_spin)
         self.new_game_layout.addLayout(dims_layout)
 
@@ -267,12 +267,27 @@ class SetupWindow(QDialog):
             else:
                 color_combo.setCurrentIndex(i % len(COLOR_PALETTE))
             color_combo.setStyleSheet("QComboBox { padding-right: 20px; }")
+            color_combo.currentIndexChanged.connect(
+                lambda _index, name=name_input, combo=color_combo: self.apply_player_name_color(name, combo.currentData())
+            )
+            self.apply_player_name_color(name_input, color_combo.currentData())
 
             row_layout.addWidget(name_input, 2)
             row_layout.addWidget(color_combo, 1)
 
             self.scroll_form.addRow(QLabel(f"プレイヤー {i + 1}:"), row_layout)
             self.player_inputs.append((name_input, color_combo))
+
+    def apply_player_name_color(self, name_input: QLineEdit, color: str):
+        name_input.setStyleSheet(
+            f"""
+            QLineEdit {{
+                color: {color};
+                border-color: {color};
+                font-weight: 700;
+            }}
+            """
+        )
 
     def start_new_game(self):
         csv_path = self.csv_path_input.text().strip()
