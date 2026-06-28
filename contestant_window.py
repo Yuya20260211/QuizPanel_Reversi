@@ -44,6 +44,13 @@ class OthelloCellButton(QPushButton):
         self.is_active = active
         self.update_style(False)
 
+    def set_display(self, cell_id: int, genre: str):
+        self.cell_id = cell_id
+        self.genre = genre
+        self.id_label.setText(str(cell_id))
+        self.genre_label.setText(genre)
+        self.layout_labels()
+
     def set_genre_hidden(self, hidden: bool):
         self.genre_hidden = hidden
         self.genre_label.setVisible(not hidden)
@@ -114,7 +121,7 @@ class ContestantWindow(QMainWindow):
         self.turn_lbl = QLabel(f"Turn: {self.state.turn}", self)
         self.turn_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.turn_lbl.setStyleSheet("color: #38bdf8; font-weight: bold;")
-        self.elapsed_lbl = QLabel(f"経過: {self.state.elapsed_text()}", self)
+        self.elapsed_lbl = QLabel(f"経過時間: {self.state.elapsed_text()}", self)
         self.elapsed_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.elapsed_lbl.setStyleSheet("color: #38bdf8; font-weight: bold;")
         header_layout.addWidget(self.title_lbl)
@@ -156,7 +163,11 @@ class ContestantWindow(QMainWindow):
         for r in range(self.state.rows):
             for c in range(self.state.cols):
                 cell_data = self.state.board[r][c]
-                btn = OthelloCellButton(cell_data["initial_id"], cell_data["initial_genre"], self)
+                btn = OthelloCellButton(
+                    cell_data.get("display_id", cell_data["initial_id"]),
+                    cell_data.get("display_genre", cell_data["initial_genre"]),
+                    self
+                )
                 # Note: We do not bind click event on contestant screen; clicks happen on presenter screen.
                 # However, to be interactive, we can enable it or just let presenter trigger actions.
                 # In standard usage, contestant screen is view-only, but let's make it fully responsive.
@@ -222,7 +233,12 @@ class ContestantWindow(QMainWindow):
         # 1. Update Grid Colors
         active_cell = self.state.active_cell if self.state.active_question else None
         for (r, c), btn in self.cells.items():
-            btn.set_owner(self.state.board[r][c]["color"])
+            cell_data = self.state.board[r][c]
+            btn.set_display(
+                cell_data.get("display_id", cell_data["initial_id"]),
+                cell_data.get("display_genre", cell_data["initial_genre"])
+            )
+            btn.set_owner(cell_data["color"])
             btn.set_active((r, c) == active_cell)
             btn.set_genre_hidden(getattr(self.state, "hide_genre_on_contestant", False))
             
@@ -316,7 +332,7 @@ class ContestantWindow(QMainWindow):
         self.adjust_font_sizes()
 
     def update_elapsed_label(self):
-        self.elapsed_lbl.setText(f"経過: {self.state.elapsed_text()}")
+        self.elapsed_lbl.setText(f"経過時間: {self.state.elapsed_text()}")
 
     def closeEvent(self, event):
         if self.allow_close:

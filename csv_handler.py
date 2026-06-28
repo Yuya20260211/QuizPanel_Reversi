@@ -46,7 +46,7 @@ class CSVHandler:
 
         if shuffle_type == "シャッフルなし":
             shuffled_questions = raw_questions.copy()
-        elif shuffle_type == "全体シャッフル":
+        elif shuffle_type == "シャッフルあり":
             shuffled_questions = raw_questions.copy()
             random.shuffle(shuffled_questions)
             is_shuffled = True

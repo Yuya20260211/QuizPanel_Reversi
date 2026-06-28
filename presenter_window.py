@@ -264,7 +264,7 @@ class PresenterWindow(QMainWindow):
         
         self.used_questions_btn = QPushButton("出題済問題一覧", self)
         self.used_questions_btn.clicked.connect(self.show_used_questions)
-        self.elapsed_lbl = QLabel(f"経過: {self.state.elapsed_text()}", self)
+        self.elapsed_lbl = QLabel(f"経過時間: {self.state.elapsed_text()}", self)
         self.elapsed_lbl.setObjectName("turn_label")
         self.elapsed_lbl.setFont(QFont("Outfit", 15, QFont.Weight.Bold))
         self.elapsed_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -308,9 +308,6 @@ class PresenterWindow(QMainWindow):
         self.hide_genre_cb = QCheckBox("ジャンルを隠す", self)
         self.hide_genre_cb.setChecked(getattr(self.state, "hide_genre_on_contestant", False))
         self.hide_genre_cb.stateChanged.connect(self.toggle_contestant_genre)
-        self.reserve_ignore_genre_cb = QCheckBox("予備問題はジャンルを問わない", self)
-        self.reserve_ignore_genre_cb.setChecked(getattr(self.state, "reserve_ignore_genre", False))
-        self.reserve_ignore_genre_cb.stateChanged.connect(self.toggle_reserve_ignore_genre)
         self.answer_always_cb = QCheckBox("常に答えを表示", self)
         self.answer_always_cb.setChecked(getattr(self.state, "show_answer_always", False))
         self.answer_always_cb.stateChanged.connect(self.toggle_answer_always)
@@ -319,7 +316,6 @@ class PresenterWindow(QMainWindow):
         controls_layout.addWidget(self.gray_restore_btn)
         controls_layout.addWidget(self.score_cb)
         controls_layout.addWidget(self.hide_genre_cb)
-        controls_layout.addWidget(self.reserve_ignore_genre_cb)
         self.show_contestant_btn = QPushButton("回答者パネルを表示", self)
         self.show_contestant_btn.clicked.connect(self.show_contestant_window)
         controls_layout.addWidget(self.show_contestant_btn)
@@ -330,7 +326,7 @@ class PresenterWindow(QMainWindow):
         self.save_json_btn.clicked.connect(self.manual_save_json)
         self.save_img_btn = QPushButton("盤面画像保存", self)
         self.save_img_btn.clicked.connect(self.save_board_image)
-        self.end_game_btn = QPushButton("ゲーム終了", self)
+        self.end_game_btn = QPushButton("ゲーム終了/結果発表", self)
         self.end_game_btn.clicked.connect(self.trigger_end_game_confirm)
         
         controls_layout.addWidget(self.save_json_btn)
@@ -449,7 +445,11 @@ class PresenterWindow(QMainWindow):
         for r in range(self.state.rows):
             for c in range(self.state.cols):
                 cell_data = self.state.board[r][c]
-                btn = OthelloCellButton(cell_data["initial_id"], cell_data["initial_genre"], self)
+                btn = OthelloCellButton(
+                    cell_data.get("display_id", cell_data["initial_id"]),
+                    cell_data.get("display_genre", cell_data["initial_genre"]),
+                    self
+                )
                 # Connect click handler
                 btn.clicked.connect(lambda checked=False, row=r, col=c: self.on_cell_clicked(row, col))
                 self.grid_layout.addWidget(btn, r, c)
@@ -506,7 +506,12 @@ class PresenterWindow(QMainWindow):
 
         # 1. Update Grid Cell colors
         for (r, c), btn in self.cells.items():
-            btn.set_owner(self.state.board[r][c]["color"])
+            cell_data = self.state.board[r][c]
+            btn.set_display(
+                cell_data.get("display_id", cell_data["initial_id"]),
+                cell_data.get("display_genre", cell_data["initial_genre"])
+            )
+            btn.set_owner(cell_data["color"])
             btn.set_active((r, c) == active_cell)
             
         # 2. Update Turn
@@ -552,9 +557,6 @@ class PresenterWindow(QMainWindow):
         self.hide_genre_cb.blockSignals(True)
         self.hide_genre_cb.setChecked(getattr(self.state, "hide_genre_on_contestant", False))
         self.hide_genre_cb.blockSignals(False)
-        self.reserve_ignore_genre_cb.blockSignals(True)
-        self.reserve_ignore_genre_cb.setChecked(getattr(self.state, "reserve_ignore_genre", False))
-        self.reserve_ignore_genre_cb.blockSignals(False)
         self.answer_always_cb.blockSignals(True)
         self.answer_always_cb.setChecked(getattr(self.state, "show_answer_always", False))
         self.answer_always_cb.blockSignals(False)
@@ -636,12 +638,8 @@ class PresenterWindow(QMainWindow):
         if q:
             self.update_ui()
         else:
-            # No question or no reserves left
-            if not self.state.has_unused_reserves(r, c):
-                QMessageBox.critical(self, "ゲーム終了", "このマスに対する予備問題がもうありません！")
-                self.trigger_end_game_confirm(force=True)
-            else:
-                QMessageBox.warning(self, "エラー", "問題の取得に失敗しました。")
+            self.update_ui()
+            QMessageBox.information(self, "問題切れ", "問題が無くなりました。")
 
     def trigger_winner(self, color: str):
         """Marks the active question as answered correctly by player with specified color."""
@@ -679,17 +677,11 @@ class PresenterWindow(QMainWindow):
         self.update_ui()
 
     def update_elapsed_label(self):
-        self.elapsed_lbl.setText(f"経過: {self.state.elapsed_text()}")
+        self.elapsed_lbl.setText(f"経過時間: {self.state.elapsed_text()}")
 
     def toggle_contestant_genre(self, checked):
         """Toggles genre visibility only on the contestant screen."""
         self.state.hide_genre_on_contestant = (checked == 2)
-        self.autosave_json()
-        self.update_ui()
-
-    def toggle_reserve_ignore_genre(self, checked):
-        """Uses reserve questions in CSV order without preferring the cell's initial genre."""
-        self.state.reserve_ignore_genre = (checked == 2)
         self.autosave_json()
         self.update_ui()
 
@@ -847,11 +839,15 @@ class PresenterWindow(QMainWindow):
                 # Draw ID (top-left of cell)
                 painter.setPen(QColor("rgba(255, 255, 255, 0.6)"))
                 painter.setFont(QFont("Inter", 10, QFont.Weight.Bold))
-                painter.drawText(int(cx + 8), int(cy + 18), str(cell_data["initial_id"]))
+                painter.drawText(
+                    int(cx + 8),
+                    int(cy + 18),
+                    str(cell_data.get("display_id", cell_data["initial_id"]))
+                )
                 
                 # Draw Genre (centered in cell)
                 painter.setPen(QColor("#ffffff"))
-                genre_text = cell_data["initial_genre"]
+                genre_text = cell_data.get("display_genre", cell_data["initial_genre"])
                 length = len(genre_text)
                 font_size = min(cell_w / (length * 0.75), cell_h * 0.35)
                 font_size = max(min(font_size, 26), 9)
@@ -1015,6 +1011,12 @@ class OthelloCellButton(QPushButton):
     def set_active(self, active: bool):
         self.is_active = active
         self.update_style(False)
+
+    def set_display(self, cell_id: int, genre: str):
+        self.cell_id = cell_id
+        self.genre = genre
+        self.id_label.setText(str(cell_id))
+        self.genre_label.setText(genre)
 
     def update_style(self, is_hovered: bool = False):
         if self.is_active:

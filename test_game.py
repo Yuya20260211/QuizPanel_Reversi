@@ -54,7 +54,7 @@ class TestQuizOthello(unittest.TestCase):
     def test_csv_shuffle_saving(self):
         # Test shuffle all
         questions, final_path = CSVHandler.load_and_process_csv(
-            self.csv_path, self.rows, self.cols, "全体シャッフル"
+            self.csv_path, self.rows, self.cols, "シャッフルあり"
         )
         self.assertNotEqual(final_path, self.csv_path)
         self.assertTrue(os.path.exists(final_path))
@@ -154,8 +154,10 @@ class TestQuizOthello(unittest.TestCase):
         self.assertIsNotNone(q)
         self.assertGreater(q["id"], 16) # Should be 17
         self.assertEqual(q["id"], 17)
+        self.assertEqual(state.board[0][0]["display_id"], 17)
+        self.assertEqual(state.board[0][0]["display_genre"], q["genre"])
 
-    def test_reserve_question_can_ignore_genre(self):
+    def test_reserve_question_uses_csv_order_and_updates_display(self):
         questions = []
         for i in range(1, 17):
             questions.append({
@@ -184,14 +186,10 @@ class TestQuizOthello(unittest.TestCase):
         state.gray_restore_cell(0, 0)
 
         q = state.select_cell(0, 0)
-        self.assertEqual(q["id"], 18)
-
-        state.active_question = None
-        state.active_cell = None
-        state.reserve_ignore_genre = True
-
-        q = state.select_cell(0, 0)
         self.assertEqual(q["id"], 17)
+        self.assertEqual(q["genre"], "スポーツ")
+        self.assertEqual(state.board[0][0]["display_id"], 17)
+        self.assertEqual(state.board[0][0]["display_genre"], "スポーツ")
 
 if __name__ == "__main__":
     unittest.main()

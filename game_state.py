@@ -1,4 +1,3 @@
-import copy
 import json
 import os
 import time
@@ -24,16 +23,16 @@ class GameState:
         # Show score on contestant screen
         self.show_score_on_contestant = False
         self.hide_genre_on_contestant = False
-        self.reserve_ignore_genre = False
         self.show_answer_always = False
         self.answer_revealed = False
+        self.active_display_snapshot = None
         
         # Track used questions (contains question IDs, 1-indexed)
         self.used_questions_ids = set()
         self.used_question_records = []
 
         # Board state
-        # 2D list of cells. A cell is a dict with keys: 'color', 'initial_genre', 'initial_id'
+        # 2D list of cells. display_* can change when a reserve question is loaded.
         self.board = []
         for r in range(self.rows):
             row_cells = []
@@ -43,7 +42,9 @@ class GameState:
                 row_cells.append({
                     "color": None,           # None means gray (unowned)
                     "initial_genre": q["genre"],
-                    "initial_id": q["id"]
+                    "initial_id": q["id"],
+                    "display_genre": q["genre"],
+                    "display_id": q["id"],
                 })
             self.board.append(row_cells)
 
@@ -137,54 +138,60 @@ class GameState:
         if self.board[r][c]["color"] is not None:
             return None
 
+        self._restore_unconfirmed_display()
         self.active_cell = (r, c)
         self.answer_revealed = False
         
         # Determine which question to load
-        initial_id = self.board[r][c]["initial_id"]
+        cell = self.board[r][c]
+        initial_id = cell["initial_id"]
         
         # If the cell's initial question is unused, use it
         if initial_id not in self.used_questions_ids:
             self.active_question = self.get_question_by_id(initial_id)
+            self.active_display_snapshot = None
             return self.active_question
         
-        # Otherwise, search for a reserve question
-        reserve_q = self._find_reserve_question(self.board[r][c]["initial_genre"])
+        # Otherwise, use the next unused reserve question in CSV order.
+        reserve_q = self._find_reserve_question()
         if reserve_q:
             self.active_question = reserve_q
+            self.active_display_snapshot = (
+                r,
+                c,
+                cell.get("display_id", cell["initial_id"]),
+                cell.get("display_genre", cell["initial_genre"]),
+            )
+            cell["display_id"] = reserve_q["id"]
+            cell["display_genre"] = reserve_q["genre"]
             return self.active_question
         
         # If no reserve question, we return None (main window will handle game over)
         self.active_question = None
         self.answer_revealed = False
+        self.active_display_snapshot = None
         return None
 
-    def _find_reserve_question(self, target_genre: str) -> dict | None:
+    def _restore_unconfirmed_display(self):
+        """Restores a reserve display change if the question was only previewed."""
+        if not self.active_display_snapshot:
+            return
+        r, c, display_id, display_genre = self.active_display_snapshot
+        if self.active_question and self.active_question["id"] not in self.used_questions_ids:
+            self.board[r][c]["display_id"] = display_id
+            self.board[r][c]["display_genre"] = display_genre
+        self.active_display_snapshot = None
+
+    def _find_reserve_question(self) -> dict | None:
         """
         Finds an unused reserve question (ID > rows * cols).
-        Rules:
-        1. Unused reserve question with same genre
-        2. First unused reserve question of any genre
+        Reserve questions are always consumed in CSV order.
         """
         initial_count = self.rows * self.cols
         reserve_questions = self.questions[initial_count:]
-
-        if self.reserve_ignore_genre:
-            for q in reserve_questions:
-                if q["id"] not in self.used_questions_ids:
-                    return q
-            return None
-        
-        # Rule 1: Same genre
-        for q in reserve_questions:
-            if q["id"] not in self.used_questions_ids and q["genre"] == target_genre:
-                return q
-                
-        # Rule 2: Any genre
         for q in reserve_questions:
             if q["id"] not in self.used_questions_ids:
                 return q
-                
         return None
 
     def resolve_question_with_winner(self, winner_color: str):
@@ -198,6 +205,7 @@ class GameState:
         self.board[r][c]["color"] = winner_color
         self.used_questions_ids.add(self.active_question["id"])
         self._record_used_question("winner")
+        self.active_display_snapshot = None
         
         # Perform Othello flips
         self._flip_othello(r, c, winner_color)
@@ -217,6 +225,7 @@ class GameState:
         # Cell stays gray (color = None)
         self.used_questions_ids.add(self.active_question["id"])
         self._record_used_question("no_winner")
+        self.active_display_snapshot = None
         
         self.turn += 1
         self.active_question = None
@@ -283,9 +292,8 @@ class GameState:
         return True
 
     def has_unused_reserves(self, r: int, c: int) -> bool:
-        """Checks if a reserve question is available for the given cell."""
-        genre = self.board[r][c]["initial_genre"]
-        return self._find_reserve_question(genre) is not None
+        """Checks if any reserve question is available."""
+        return self._find_reserve_question() is not None
 
     def save_to_dict(self) -> dict:
         """Serializes the game state to a dictionary (JSON-compatible)."""
@@ -301,9 +309,9 @@ class GameState:
             "started_at": self.started_at,
             "show_score_on_contestant": self.show_score_on_contestant,
             "hide_genre_on_contestant": self.hide_genre_on_contestant,
-            "reserve_ignore_genre": self.reserve_ignore_genre,
             "show_answer_always": self.show_answer_always,
             "answer_revealed": self.answer_revealed,
+            "active_display_snapshot": self.active_display_snapshot,
             "used_questions_ids": list(self.used_questions_ids),
             "used_question_records": self.get_used_question_records(),
             "board": [
@@ -311,7 +319,9 @@ class GameState:
                     {
                         "color": cell["color"],
                         "initial_genre": cell["initial_genre"],
-                        "initial_id": cell["initial_id"]
+                        "initial_id": cell["initial_id"],
+                        "display_genre": cell.get("display_genre", cell["initial_genre"]),
+                        "display_id": cell.get("display_id", cell["initial_id"]),
                     }
                     for cell in row
                 ]
@@ -334,9 +344,9 @@ class GameState:
         self.started_at = data.get("started_at", time.time())
         self.show_score_on_contestant = data["show_score_on_contestant"]
         self.hide_genre_on_contestant = data.get("hide_genre_on_contestant", False)
-        self.reserve_ignore_genre = data.get("reserve_ignore_genre", False)
         self.show_answer_always = data.get("show_answer_always", False)
         self.answer_revealed = data.get("answer_revealed", False)
+        self.active_display_snapshot = data.get("active_display_snapshot")
         self.used_questions_ids = set(data["used_questions_ids"])
         self.used_question_records = data.get("used_question_records", [])
         
@@ -348,7 +358,9 @@ class GameState:
                 row_cells.append({
                     "color": cell_data["color"],
                     "initial_genre": cell_data["initial_genre"],
-                    "initial_id": cell_data["initial_id"]
+                    "initial_id": cell_data["initial_id"],
+                    "display_genre": cell_data.get("display_genre", cell_data["initial_genre"]),
+                    "display_id": cell_data.get("display_id", cell_data["initial_id"]),
                 })
             self.board.append(row_cells)
             

@@ -47,7 +47,7 @@ COLOR_PALETTE = [
     {"name": "イエロー (黄色)", "hex": "#ca8a04"},
 ]
 
-SHUFFLE_OPTIONS = ["シャッフルなし", "全体シャッフル"]
+SHUFFLE_OPTIONS = ["シャッフルなし", "シャッフルあり"]
 
 
 class NumberStepper(QWidget):
