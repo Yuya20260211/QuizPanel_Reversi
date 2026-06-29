@@ -26,12 +26,7 @@ from contestant_window import ContestantWindow
 from csv_handler import CSVHandler, CSVHandlerError
 from game_state import GameState
 from presenter_window import PresenterWindow
-
-
-def get_app_dir() -> str:
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(os.path.abspath(sys.executable))
-    return os.path.dirname(os.path.abspath(__file__))
+from utils import get_app_dir
 
 
 APP_DIR = get_app_dir()

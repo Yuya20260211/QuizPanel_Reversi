@@ -3,97 +3,7 @@ from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtWidgets import QMainWindow, QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSizePolicy
 from PySide6.QtGui import QFont, QFontMetrics
 import styles
-
-class OthelloCellButton(QPushButton):
-    """Custom button for Othello grid cell with custom text elements and hover events."""
-    def __init__(self, cell_id: int, genre: str, parent=None):
-        super().__init__(parent)
-        self.cell_id = cell_id
-        self.genre = genre
-        self.owner_color = None
-        self.is_active = False
-        self.genre_hidden = False
-        self.setObjectName("othello_cell_button")
-        self.setText("")
-        self.setMinimumSize(72, 56)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        
-        # Disable default styling to allow custom backgrounds via inline CSS
-        self.setFlat(True)
-        
-        # ID label in the corner (top-left as per specifications) - absolute layout
-        self.id_label = QLabel(str(cell_id), self)
-        self.id_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        self.id_label.setStyleSheet("background: transparent; color: rgba(255, 255, 255, 0.82); font-weight: bold; border: none; font-family: Arial;")
-        
-        # Genre label in the center - absolute layout
-        self.genre_label = QLabel(genre, self)
-        self.genre_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.genre_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        self.genre_label.setWordWrap(True)
-        self.genre_label.setStyleSheet("background: transparent; color: #ffffff; font-weight: bold; border: none; font-family: 'Yu Gothic UI', Meiryo, sans-serif;")
-        
-        self.update_style()
-
-    def set_owner(self, color: str | None):
-        """Sets the owner player color of this cell."""
-        self.owner_color = color
-        self.update_style(False)
-
-    def set_active(self, active: bool):
-        self.is_active = active
-        self.update_style(False)
-
-    def set_display(self, cell_id: int, genre: str):
-        self.cell_id = cell_id
-        self.genre = genre
-        self.id_label.setText(str(cell_id))
-        self.genre_label.setText(genre)
-        self.layout_labels()
-
-    def set_genre_hidden(self, hidden: bool):
-        self.genre_hidden = hidden
-        self.genre_label.setVisible(not hidden)
-        self.layout_labels()
-
-    def update_style(self, is_hovered: bool = False):
-        """Updates the style of the cell button."""
-        if self.is_active:
-            style_qss = (
-                "background-color: #1e1b4b;"
-                "border: 4px solid #facc15;"
-                "border-radius: 8px;"
-                "padding: 0px; margin: 0px;"
-            )
-        else:
-            style_qss = styles.get_cell_style_qss(self.owner_color, is_hovered)
-        self.setStyleSheet(style_qss)
-        self.id_label.raise_()
-        self.genre_label.raise_()
-
-    def layout_labels(self):
-        # Position child labels absolute relative to the button width/height
-        if self.genre_hidden:
-            self.id_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.id_label.setGeometry(6, 6, self.width() - 12, self.height() - 12)
-        else:
-            self.id_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            self.id_label.setGeometry(6, 4, self.width() - 12, 16)
-            self.genre_label.setGeometry(6, 18, self.width() - 12, self.height() - 22)
-        self.id_label.raise_()
-        self.genre_label.raise_()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.layout_labels()
-
-    def enterEvent(self, event):
-        self.update_style(True)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self.update_style(False)
-        super().leaveEvent(event)
+from board_cell import OthelloCellButton
 
 
 class ContestantWindow(QMainWindow):
@@ -106,11 +16,11 @@ class ContestantWindow(QMainWindow):
         self.score_labels = [] # List of score labels for updating
         self.setWindowTitle("回答者側パネル - クイズ用オセロ")
         self.setMinimumSize(600, 500)
-        
+
         # Set central widget and layout
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
-        
+
         self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setContentsMargins(15, 15, 15, 15)
         self.main_layout.setSpacing(15)
@@ -129,7 +39,7 @@ class ContestantWindow(QMainWindow):
         header_layout.addWidget(self.elapsed_lbl)
         header_layout.addWidget(self.turn_lbl)
         self.main_layout.addLayout(header_layout)
-        
+
         # Grid container frame
         self.grid_container = QFrame(self)
         self.grid_container.setObjectName("othello_grid_container")
@@ -137,7 +47,7 @@ class ContestantWindow(QMainWindow):
         self.grid_layout.setSpacing(8)
         self.grid_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.addWidget(self.grid_container, 8)
-        
+
         # Score card frame (collapsible/toggleable)
         self.score_card = QFrame(self)
         self.score_card.setObjectName("score_card")
@@ -145,7 +55,7 @@ class ContestantWindow(QMainWindow):
         self.score_layout.setContentsMargins(15, 10, 15, 10)
         self.score_layout.setSpacing(20)
         self.main_layout.addWidget(self.score_card, 1)
-        
+
         # Initialize UI elements
         self.init_grid()
         self.init_scores()
@@ -154,7 +64,7 @@ class ContestantWindow(QMainWindow):
         self.elapsed_timer = QTimer(self)
         self.elapsed_timer.timeout.connect(self.update_elapsed_label)
         self.elapsed_timer.start(1000)
-        
+
         # Apply global style
         self.setStyleSheet(styles.APP_STYLE)
 
@@ -172,10 +82,10 @@ class ContestantWindow(QMainWindow):
                 # However, to be interactive, we can enable it or just let presenter trigger actions.
                 # In standard usage, contestant screen is view-only, but let's make it fully responsive.
                 btn.setFocusPolicy(Qt.FocusPolicy.NoFocus) # Presenter controls everything
-                
+
                 self.grid_layout.addWidget(btn, r, c)
                 self.cells[(r, c)] = btn
-                
+
         # Make grid columns and rows stretch equally
         for r in range(self.state.rows):
             self.grid_layout.setRowStretch(r, 1)
@@ -198,34 +108,34 @@ class ContestantWindow(QMainWindow):
         title_lbl.setStyleSheet("font-weight: bold; color: #38bdf8;")
         self.score_layout.addWidget(title_lbl)
         self.score_labels.append(title_lbl)
-        
+
         for player in self.state.players:
             p_color = player["color"]
             p_name = player["name"]
-            
+
             # Sub-container for player score
             p_frame = QFrame(self)
             p_frame.setStyleSheet("background: transparent;")
             p_layout = QHBoxLayout(p_frame)
             p_layout.setContentsMargins(0, 0, 0, 0)
             p_layout.setSpacing(6)
-            
+
             # Color block
             color_block = QLabel(self)
             color_block.setFixedSize(16, 16)
             color_block.setStyleSheet(f"background-color: {p_color}; border: 1px solid white; border-radius: 4px;")
-            
+
             # Score label
             score_lbl = QLabel(p_name, self)
             score_lbl.setStyleSheet(f"color: #f1f5f9; font-weight: bold;")
-            
+
             p_layout.addWidget(color_block)
             p_layout.addWidget(score_lbl)
-            
+
             self.score_layout.addWidget(p_frame)
             # Store reference to the label and the block for updating/resizing
             self.score_labels.append((score_lbl, player))
-            
+
         self.score_layout.addStretch()
 
     def update_ui(self):
@@ -241,12 +151,12 @@ class ContestantWindow(QMainWindow):
             btn.set_owner(cell_data["color"])
             btn.set_active((r, c) == active_cell)
             btn.set_genre_hidden(getattr(self.state, "hide_genre_on_contestant", False))
-            
+
         # 2. Contestant/player area is always visible; only score numbers can be hidden.
         self.score_card.setVisible(True)
         self.turn_lbl.setText(f"Turn: {self.state.turn}")
         self.update_elapsed_label()
-        
+
         # 3. Update Scores
         scores = self.state.get_scores()
         for item in self.score_labels:
@@ -259,25 +169,25 @@ class ContestantWindow(QMainWindow):
                     label.setText(f"{name}: {count}枚")
                 else:
                     label.setText(name)
-                
+
         # Re-adjust fonts after state changes
         self.adjust_font_sizes()
 
     def adjust_font_sizes(self):
         """Dynamically updates font sizes based on cell button dimensions and text length."""
         w, h = self.width(), self.height()
-        
+
         # Adjust grid cells
         for (r, c), btn in self.cells.items():
             btn_w = btn.width()
             btn_h = btn.height()
-            
+
             if btn_w <= 0 or btn_h <= 0:
                 continue
-                
+
             genre_text = btn.genre
             length = len(genre_text)
-            
+
             label_x = 6
             label_y = max(18, int(btn_h * 0.27))
             label_w = max(1, btn_w - 12)
@@ -298,7 +208,7 @@ class ContestantWindow(QMainWindow):
             if not btn.genre_hidden:
                 btn.genre_label.setFont(genre_font)
                 btn.genre_label.setGeometry(label_x, label_y, label_w, label_h)
-            
+
             # ID Font Size
             if btn.genre_hidden:
                 id_font_size = min(btn_w * 0.42, btn_h * 0.46)

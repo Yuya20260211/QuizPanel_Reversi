@@ -13,9 +13,12 @@ class CSVHandler:
     REQUIRED_COLUMNS = ("ジャンル", "問題文", "答え")
     ENCODINGS = ("utf-8-sig", "cp932", "utf-8")
     COLUMN_ALIASES = {
-        "ジャンル": {"ジャンル", "ジャンル名", "カテゴリ", "カテゴリー", "genre", "category"},
-        "問題文": {"問題文", "問題", "問い", "設問", "question", "quiz"},
-        "答え": {"答え", "解答", "回答", "正解", "answer"},
+        "ジャンル": {"ジャンル", "ジャンル名", "カテゴリ", "カテゴリー", "分類", "種別", "種類",
+                    "genre", "category", "type", "subject", "topic", "field"},
+        "問題文": {"問題文", "問題", "問い", "設問", "質問", "出題", "クイズ",
+                  "question", "quiz", "q", "問"},
+        "答え": {"答え", "解答", "回答", "正解", "正答", "解",
+                "answer", "correct", "a"},
     }
 
     @staticmethod
@@ -80,6 +83,28 @@ class CSVHandler:
         return shuffled_questions, final_csv_path
 
     @staticmethod
+    def _row_is_likely_data(row: list[str]) -> bool:
+        """Heuristic: True if the row looks like quiz content rather than column headers.
+
+        A data row tends to contain at least one cell that is either long (>15 chars),
+        contains Japanese sentence characters, or contains any non-ASCII characters
+        (kanji, hiragana, katakana, etc.).  Short ASCII-only cells — typical of English
+        column names like "Category" or "Answer" — return False.
+        """
+        sentence_chars = frozenset('。、！？…')
+        for cell in row:
+            cleaned = CSVHandler._clean_cell(cell)
+            if not cleaned:
+                continue
+            if len(cleaned) > 15:
+                return True
+            if any(c in cleaned for c in sentence_chars):
+                return True
+            if any(ord(c) > 0x7F for c in cleaned):
+                return True
+        return False
+
+    @staticmethod
     def _load_raw_questions(file_path: str) -> list[dict]:
         rows = CSVHandler._read_csv_rows(file_path)
         if not rows:
@@ -112,6 +137,19 @@ class CSVHandler:
             raise CSVHandlerError(
                 "CSVの列を判別できません。\n"
                 "1行目を「ジャンル,問題文,答え」にするか、ヘッダーなしの場合は3列で作成してください。"
+            )
+
+        # column_map is empty: no alias matched. Determine whether row 0 is actual
+        # quiz data (headerless CSV) or an unrecognized header row.
+        if not CSVHandler._row_is_likely_data(rows[0]):
+            raise CSVHandlerError(
+                "CSVの1行目の列名を認識できませんでした。\n"
+                f"検出された1行目: {', '.join(header)}\n"
+                "以下の列名が使用できます:\n"
+                "  ジャンル列: ジャンル, ジャンル名, カテゴリ, genre, category\n"
+                "  問題文列:   問題文, 問題, question, quiz\n"
+                "  答え列:     答え, 解答, 回答, 正解, answer\n"
+                "ヘッダーなしCSVの場合は、1行目からデータを直接入力してください（ヘッダー行不要）。"
             )
 
         for line_idx, row in enumerate(rows, start=1):

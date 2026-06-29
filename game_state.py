@@ -15,18 +15,18 @@ class GameState:
         # Active question state
         self.active_question = None  # Current question dict or None
         self.active_cell = None      # Tuple (r, c) or None
-        
+
         # Turn count
         self.turn = 0
         self.started_at = time.time()
-        
+
         # Show score on contestant screen
         self.show_score_on_contestant = False
         self.hide_genre_on_contestant = False
         self.show_answer_always = False
         self.answer_revealed = False
         self.active_display_snapshot = None
-        
+
         # Track used questions (contains question IDs, 1-indexed)
         self.used_questions_ids = set()
         self.used_question_records = []
@@ -141,11 +141,11 @@ class GameState:
         self._restore_unconfirmed_display()
         self.active_cell = (r, c)
         self.answer_revealed = False
-        
+
         # Determine which question to load
         cell = self.board[r][c]
         initial_id = cell["initial_id"]
-        
+
         # If the cell's initial question is unused, use it
         if initial_id not in self.used_questions_ids:
             self.active_question = self.get_question_by_id(initial_id)
@@ -163,7 +163,7 @@ class GameState:
                 self.active_display_snapshot = None
                 cell["display_genre"] = assigned_q["genre"]
                 return self.active_question
-        
+
         # Otherwise, use the next unused reserve question in CSV order.
         reserve_q = self._find_reserve_question()
         if reserve_q:
@@ -175,7 +175,7 @@ class GameState:
             )
             cell["display_genre"] = reserve_q["genre"]
             return self.active_question
-        
+
         # If no reserve question, we return None (main window will handle game over)
         self.active_question = None
         self.answer_revealed = False
@@ -229,7 +229,7 @@ class GameState:
             return
 
         self.push_to_history()
-        
+
         r, c = self.active_cell
         self.board[r][c]["color"] = winner_color
         if self.board[r][c].get("assigned_reserve_id") == self.active_question["id"]:
@@ -237,10 +237,10 @@ class GameState:
         self.used_questions_ids.add(self.active_question["id"])
         self._record_used_question("winner")
         self.active_display_snapshot = None
-        
+
         # Perform Othello flips
         self._flip_othello(r, c, winner_color)
-        
+
         self.turn += 1
         self.active_question = None
         self.active_cell = None
@@ -253,14 +253,14 @@ class GameState:
 
         self.push_to_history()
         r, c = self.active_cell
-        
+
         # Cell stays gray (color = None)
         if self.board[r][c].get("assigned_reserve_id") == self.active_question["id"]:
             self.board[r][c]["assigned_reserve_id"] = None
         self.used_questions_ids.add(self.active_question["id"])
         self._record_used_question("no_winner")
         self.active_display_snapshot = None
-        
+
         self.turn += 1
         self.answer_revealed = False
         next_q = self._assign_next_reserve_to_cell(r, c)
@@ -281,9 +281,9 @@ class GameState:
         """
         if self.board[r][c]["color"] is None:
             return False # Already gray
-            
+
         self.push_to_history()
-        
+
         self.board[r][c]["color"] = None
         # We do NOT remove the question from used_questions_ids. It stays used.
         # Next time they click this cell, it will ask a reserve question.
@@ -296,16 +296,16 @@ class GameState:
             (0, -1),           (0, 1),
             (1, -1),  (1, 0),  (1, 1)
         ]
-        
+
         cells_to_flip = []
-        
+
         for dr, dc in directions:
             current_flips = []
             curr_r, curr_c = r + dr, c + dc
-            
+
             while 0 <= curr_r < self.rows and 0 <= curr_c < self.cols:
                 cell_color = self.board[curr_r][curr_c]["color"]
-                
+
                 if cell_color is None:
                     # Hit a gray cell - abort this direction
                     break
@@ -316,10 +316,10 @@ class GameState:
                 else:
                     # Hit an opponent color - collect and continue
                     current_flips.append((curr_r, curr_c))
-                    
+
                 curr_r += dr
                 curr_c += dc
-                
+
         # Apply flips
         for flip_r, flip_c in cells_to_flip:
             self.board[flip_r][flip_c]["color"] = player_color
@@ -331,10 +331,6 @@ class GameState:
                 if self.board[r][c]["color"] is None:
                     return False
         return True
-
-    def has_unused_reserves(self, r: int, c: int) -> bool:
-        """Checks if any reserve question is available."""
-        return self._find_reserve_question() is not None
 
     def save_to_dict(self) -> dict:
         """Serializes the game state to a dictionary (JSON-compatible)."""
@@ -390,7 +386,7 @@ class GameState:
         self.active_display_snapshot = data.get("active_display_snapshot")
         self.used_questions_ids = set(data["used_questions_ids"])
         self.used_question_records = data.get("used_question_records", [])
-        
+
         self.board = []
         for r in range(self.rows):
             row_cells = []
@@ -404,7 +400,7 @@ class GameState:
                     "assigned_reserve_id": cell_data.get("assigned_reserve_id"),
                 })
             self.board.append(row_cells)
-            
+
         self.active_question = data["active_question"]
         self.active_cell = tuple(data["active_cell"]) if data["active_cell"] else None
 
@@ -425,7 +421,7 @@ class GameState:
         """Loads and returns a GameState instance from a JSON file."""
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            
+
         # Instantiate with skeleton variables
         instance = cls(
             rows=data["rows"],
