@@ -191,5 +191,34 @@ class TestQuizOthello(unittest.TestCase):
         self.assertEqual(state.board[0][0]["initial_id"], 1)
         self.assertEqual(state.board[0][0]["display_genre"], "スポーツ")
 
+    def test_no_winner_immediately_assigns_next_reserve_question(self):
+        questions, _ = CSVHandler.load_and_process_csv(
+            self.csv_path, self.rows, self.cols, "シャッフルなし"
+        )
+        state = GameState(
+            rows=self.rows,
+            cols=self.cols,
+            csv_path=self.csv_path,
+            original_csv_path=self.csv_path,
+            shuffle_type="シャッフルなし",
+            questions=questions,
+            players=self.players
+        )
+
+        q = state.select_cell(0, 0)
+        self.assertEqual(q["id"], 1)
+
+        next_q = state.resolve_question_no_winner()
+        self.assertIsNotNone(next_q)
+        self.assertEqual(next_q["id"], 17)
+        self.assertEqual(state.turn, 1)
+        self.assertEqual(state.active_cell, (0, 0))
+        self.assertEqual(state.active_question["id"], 17)
+        self.assertEqual(state.board[0][0]["initial_id"], 1)
+        self.assertEqual(state.board[0][0]["display_genre"], next_q["genre"])
+        self.assertEqual(state.board[0][0]["assigned_reserve_id"], 17)
+        self.assertIn(1, state.used_questions_ids)
+        self.assertNotIn(17, state.used_questions_ids)
+
 if __name__ == "__main__":
     unittest.main()

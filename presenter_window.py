@@ -648,10 +648,12 @@ class PresenterWindow(QMainWindow):
     def trigger_no_winner(self):
         """Marks the active question as having no correct answer."""
         previous_turn = self.state.turn
-        self.state.resolve_question_no_winner()
+        next_q = self.state.resolve_question_no_winner()
         if self.state.turn != previous_turn:
             self.autosave_json()
         self.update_ui()
+        if self.state.turn != previous_turn and next_q is None:
+            QMessageBox.information(self, "問題切れ", "問題が無くなりました。")
 
     def trigger_undo(self):
         """Rollbacks the game state by 1 step."""

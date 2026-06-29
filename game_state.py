@@ -44,6 +44,7 @@ class GameState:
                     "initial_genre": q["genre"],
                     "initial_id": q["id"],
                     "display_genre": q["genre"],
+                    "assigned_reserve_id": None,
                 })
             self.board.append(row_cells)
 
@@ -150,6 +151,18 @@ class GameState:
             self.active_question = self.get_question_by_id(initial_id)
             self.active_display_snapshot = None
             return self.active_question
+
+        assigned_id = cell.get("assigned_reserve_id")
+        if assigned_id in self.used_questions_ids:
+            cell["assigned_reserve_id"] = None
+            assigned_id = None
+        if assigned_id:
+            assigned_q = self.get_question_by_id(assigned_id)
+            if assigned_q:
+                self.active_question = assigned_q
+                self.active_display_snapshot = None
+                cell["display_genre"] = assigned_q["genre"]
+                return self.active_question
         
         # Otherwise, use the next unused reserve question in CSV order.
         reserve_q = self._find_reserve_question()
@@ -178,6 +191,15 @@ class GameState:
             self.board[r][c]["display_genre"] = display_genre
         self.active_display_snapshot = None
 
+    def _assigned_reserve_ids(self) -> set[int]:
+        assigned = set()
+        for row in self.board:
+            for cell in row:
+                assigned_id = cell.get("assigned_reserve_id")
+                if assigned_id and assigned_id not in self.used_questions_ids:
+                    assigned.add(assigned_id)
+        return assigned
+
     def _find_reserve_question(self) -> dict | None:
         """
         Finds an unused reserve question (ID > rows * cols).
@@ -185,10 +207,21 @@ class GameState:
         """
         initial_count = self.rows * self.cols
         reserve_questions = self.questions[initial_count:]
+        assigned_ids = self._assigned_reserve_ids()
         for q in reserve_questions:
-            if q["id"] not in self.used_questions_ids:
+            if q["id"] not in self.used_questions_ids and q["id"] not in assigned_ids:
                 return q
         return None
+
+    def _assign_next_reserve_to_cell(self, r: int, c: int) -> dict | None:
+        reserve_q = self._find_reserve_question()
+        if not reserve_q:
+            return None
+
+        cell = self.board[r][c]
+        cell["assigned_reserve_id"] = reserve_q["id"]
+        cell["display_genre"] = reserve_q["genre"]
+        return reserve_q
 
     def resolve_question_with_winner(self, winner_color: str):
         """Marks active question as solved by a winner, flips cells, and increments turn."""
@@ -199,6 +232,8 @@ class GameState:
         
         r, c = self.active_cell
         self.board[r][c]["color"] = winner_color
+        if self.board[r][c].get("assigned_reserve_id") == self.active_question["id"]:
+            self.board[r][c]["assigned_reserve_id"] = None
         self.used_questions_ids.add(self.active_question["id"])
         self._record_used_question("winner")
         self.active_display_snapshot = None
@@ -211,22 +246,32 @@ class GameState:
         self.active_cell = None
         self.answer_revealed = False
 
-    def resolve_question_no_winner(self):
+    def resolve_question_no_winner(self) -> dict | None:
         """Marks active question as solved with no winner (cell remains gray), and increments turn."""
         if not self.active_question or not self.active_cell:
-            return
+            return None
 
         self.push_to_history()
+        r, c = self.active_cell
         
         # Cell stays gray (color = None)
+        if self.board[r][c].get("assigned_reserve_id") == self.active_question["id"]:
+            self.board[r][c]["assigned_reserve_id"] = None
         self.used_questions_ids.add(self.active_question["id"])
         self._record_used_question("no_winner")
         self.active_display_snapshot = None
         
         self.turn += 1
+        self.answer_revealed = False
+        next_q = self._assign_next_reserve_to_cell(r, c)
+        if next_q:
+            self.active_question = next_q
+            self.active_cell = (r, c)
+            return next_q
+
         self.active_question = None
         self.active_cell = None
-        self.answer_revealed = False
+        return None
 
     def gray_restore_cell(self, r: int, c: int) -> bool:
         """
@@ -317,6 +362,7 @@ class GameState:
                         "initial_genre": cell["initial_genre"],
                         "initial_id": cell["initial_id"],
                         "display_genre": cell.get("display_genre", cell["initial_genre"]),
+                        "assigned_reserve_id": cell.get("assigned_reserve_id"),
                     }
                     for cell in row
                 ]
@@ -355,6 +401,7 @@ class GameState:
                     "initial_genre": cell_data["initial_genre"],
                     "initial_id": cell_data["initial_id"],
                     "display_genre": cell_data.get("display_genre", cell_data["initial_genre"]),
+                    "assigned_reserve_id": cell_data.get("assigned_reserve_id"),
                 })
             self.board.append(row_cells)
             
